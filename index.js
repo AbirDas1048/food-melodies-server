@@ -21,6 +21,7 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 async function run() {
     try {
         const serviceCollection = client.db("foodMelodies").collection("services");
+        const reviewCollection = client.db("foodMelodies").collection("reviews");
         //const d = new ISODate();
         // let date = new Date().toISOString();
         // let isoDate = new Date(date);
@@ -61,6 +62,19 @@ async function run() {
             //console.log(service);
             const result = await serviceCollection.insertOne(service);
             res.send(result);
+        });
+
+        app.post('/review', async (req, res) => {
+            const data = req.body;
+
+            let date = new Date().toISOString();
+            let createdAt = new Date(date);
+            let updatedAt = new Date(date);
+
+            const review = {...data, createdAt, updatedAt }
+            console.log(review);
+            //const result = await reviewCollection.insertOne(review);
+            //res.send(result);
         });
 
         
