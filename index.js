@@ -91,10 +91,29 @@ async function run() {
             let updatedAt = new Date(date);
 
             const review = { ...data, createdAt, updatedAt }
-            console.log(review);
+            //console.log(review);
             const result = await reviewCollection.insertOne(review);
             res.send(result);
         });
+
+        app.get('/myReviews', async (req, res) => {
+            const email = req.query.email;
+            //const size = parseInt(req.query.size);
+            //console.log(email);
+            const query = {
+                userEmail: email
+            };
+            const options = {
+                // sort matched documents in descending order by rating
+                sort: { "createdAt": -1 },
+                // Include only the `title` and `imdb` fields in the returned document
+                //projection: { _id: 0, title: 1, imdb: 1 },
+            };
+            const cursor = reviewCollection.find(query, options);
+            const reviews = await cursor.toArray();
+            res.send(reviews);
+
+        })
 
 
     } finally {
