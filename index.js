@@ -67,10 +67,17 @@ async function run() {
         app.get('/service/:id', async (req, res) => {
 
             const id = req.params.id;
-
             const query = { _id: ObjectId(id) };
             const details = await serviceCollection.findOne(query);
-            res.send(details);
+
+            const reviewQuery = {serviceId: id };
+            const reviewOptions = {
+                sort: { "createdAt": -1 },
+            };
+            //const reviewDetails = await serviceCollection.findOne(query);
+            const cursor = reviewCollection.find(reviewQuery, reviewOptions);
+            const reviews = await cursor.toArray();
+            res.send({details, reviews});
 
         });
 
