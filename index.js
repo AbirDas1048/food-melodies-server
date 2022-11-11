@@ -10,10 +10,12 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-
+// MongoDb Connection
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.imn2pwq.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
+
+// Verify JWT Token
 function verifyToken(req, res, next) {
 
     const authHeader = req.headers.authorization;
@@ -34,10 +36,12 @@ function verifyToken(req, res, next) {
 
 async function run() {
     try {
+
+        // collections
         const serviceCollection = client.db("foodMelodies").collection("services");
         const reviewCollection = client.db("foodMelodies").collection("reviews");
 
-
+        // JWT token generate api
         app.post('/jwt', (req, res) => {
             const user = req.body;
             //console.log(user);
@@ -45,6 +49,7 @@ async function run() {
             res.send({ token });
         })
 
+        // get services api
         app.get('/services', async (req, res) => {
 
             const limit = parseInt(req.query.limit);
@@ -69,6 +74,7 @@ async function run() {
 
         })
 
+        // Add service api
         app.post('/service', async (req, res) => {
             const data = req.body;
 
@@ -81,6 +87,7 @@ async function run() {
             res.send(result);
         });
 
+        // Service Details api
         app.get('/service/:id', async (req, res) => {
 
             const id = req.params.id;
@@ -97,6 +104,7 @@ async function run() {
 
         });
 
+        // post review api
         app.post('/review', verifyToken, async (req, res) => {
             const data = req.body;
 
@@ -110,6 +118,7 @@ async function run() {
             res.send(result);
         });
 
+        // get user's all review api
         app.get('/myReviews', verifyToken, async (req, res) => {
             const decoded = req.decoded;
 
@@ -131,6 +140,7 @@ async function run() {
 
         })
 
+        // get user's specific review api
         app.get('/getReview/:id', async (req, res) => {
             const id = req.params.id;
 
@@ -144,6 +154,7 @@ async function run() {
 
         })
 
+        // Update review api
         app.patch('/review/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const updatedReview = req.body;
@@ -161,6 +172,7 @@ async function run() {
             res.send(result);
         })
 
+        // Delete Review api
         app.delete('/review/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
