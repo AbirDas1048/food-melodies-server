@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
 
@@ -12,41 +13,58 @@ app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.imn2pwq.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
-// client.connect(err => {
-//     const collection = client.db("test").collection("devices");
-//     // perform actions on the collection object
-//     client.close();
-// });
+
+function verifyToken(req, res, next) {
+
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        return res.status(401).send({ message: 'Unauthorized access' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (err, decoded) {
+        if (err) {
+            return res.status(403).send({ message: 'Forbidden access' });
+        }
+        req.decoded = decoded;
+        next();
+    })
+}
 
 async function run() {
     try {
         const serviceCollection = client.db("foodMelodies").collection("services");
         const reviewCollection = client.db("foodMelodies").collection("reviews");
-        //const d = new ISODate();
-        // let date = new Date().toISOString();
-        // let isoDate = new Date(date);
-        // console.log(date, isoDate);
+
+
+        app.post('/jwt', (req, res) => {
+            const user = req.body;
+            //console.log(user);
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1d' });
+            res.send({ token });
+        })
 
         app.get('/services', async (req, res) => {
+
             const limit = parseInt(req.query.limit);
-            //const size = parseInt(req.query.size);
-            //console.log(limit);
+
             const query = {};
+
             let services = [];
+
             const options = {
-                // sort matched documents in descending order by rating
                 sort: { "createdAt": -1 },
-                // Include only the `title` and `imdb` fields in the returned document
-                //projection: { _id: 0, title: 1, imdb: 1 },
             };
+
             const cursor = serviceCollection.find(query, options);
+
             if (limit) {
                 services = await cursor.skip(0).limit(limit).toArray();
             } else {
                 services = await cursor.toArray();
             }
 
-            // const count = await productCollection.estimatedDocumentCount();
             res.send(services);
 
         })
@@ -59,7 +77,6 @@ async function run() {
             let updatedAt = new Date(date);
 
             const service = { ...data, createdAt, updatedAt }
-            //console.log(service);
             const result = await serviceCollection.insertOne(service);
             res.send(result);
         });
@@ -70,17 +87,17 @@ async function run() {
             const query = { _id: ObjectId(id) };
             const details = await serviceCollection.findOne(query);
 
-            const reviewQuery = {serviceId: id };
+            const reviewQuery = { serviceId: id };
             const reviewOptions = {
                 sort: { "createdAt": -1 },
             };
             const cursor = reviewCollection.find(reviewQuery, reviewOptions);
             const reviews = await cursor.toArray();
-            res.send({details, reviews});
+            res.send({ details, reviews });
 
         });
 
-        app.post('/review', async (req, res) => {
+        app.post('/review', verifyToken, async (req, res) => {
             const data = req.body;
 
             let date = new Date().toISOString();
@@ -93,8 +110,15 @@ async function run() {
             res.send(result);
         });
 
-        app.get('/myReviews', async (req, res) => {
+        app.get('/myReviews', verifyToken, async (req, res) => {
+            const decoded = req.decoded;
+
             const email = req.query.email;
+
+            if (decoded.email !== email) {
+                res.status(403).send({ message: 'Unauthorized access' });
+            }
+
             const query = {
                 userEmail: email
             };
@@ -109,19 +133,18 @@ async function run() {
 
         app.get('/getReview/:id', async (req, res) => {
             const id = req.params.id;
+
             const query = {
                 _id: ObjectId(id)
             };
-            // const options = {
-            //     sort: { "createdAt": -1 },
-            // };
+
             const review = await reviewCollection.findOne(query);
-            //const reviews = await cursor.toArray();
+
             res.send(review);
 
         })
 
-        app.patch('/review/:id', async (req, res) => {
+        app.patch('/review/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const updatedReview = req.body;
             const reviewDes = updatedReview.reviewDes;
@@ -129,16 +152,16 @@ async function run() {
 
             const query = { _id: ObjectId(id) }
             const updatedDoc = {
-                $set:{
-                    reviewDes : reviewDes,
-                    ratings : ratings
+                $set: {
+                    reviewDes: reviewDes,
+                    ratings: ratings
                 }
             }
             const result = await reviewCollection.updateOne(query, updatedDoc);
             res.send(result);
         })
 
-        app.delete('/review/:id', async (req, res) => {
+        app.delete('/review/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
             const result = await reviewCollection.deleteOne(query);
